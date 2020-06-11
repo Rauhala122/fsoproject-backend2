@@ -910,15 +910,15 @@ app.use("/images", express.static(path.join(__dirname, "./images")))
 const cors = require('cors')
 app.use(cors())
 
+app.get('*', (req, res) => {
+   res.sendFile(path.resolve(__dirname, "build", "index.html"))
+});
+
 server.applyMiddleware({app})
 app.use(express.static("build"))
 
 const httpServer = createServer(app)
 server.installSubscriptionHandlers(httpServer);
-
-app.get('*', function(req, res){
-   res.send('<h1>Hei</h1>');
-});
 
 httpServer.listen({port: process.env.PORT || 4000}, () => {
   console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`)
