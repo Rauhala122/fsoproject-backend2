@@ -916,6 +916,7 @@ app.use(express.static("build"))
 const httpServer = createServer(app)
 server.installSubscriptionHandlers(httpServer);
 
-server.listen({ port: process.env.PORT || 4000 }).then(({ url }) => {
-  console.log(`🚀 Server ready at ${url}`);
-});
+httpServer.listen({port: process.env.PORT || 4000}, () => {
+  console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`)
+  console.log(`🚀 Subscriptions ready at ws://localhost:${PORT}${server.subscriptionsPath}`)
+})
