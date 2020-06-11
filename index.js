@@ -911,13 +911,10 @@ const cors = require('cors')
 app.use(cors())
 
 server.applyMiddleware({app})
+app.use(express.static("build"))
 
 const httpServer = createServer(app)
 server.installSubscriptionHandlers(httpServer);
-
-app.get("/", (res, req) => {
-  res.send("<h1>Server is up and running</h1>")
-})
 
 server.listen({ port: process.env.PORT || 4000 }).then(({ url }) => {
   console.log(`🚀 Server ready at ${url}`);
