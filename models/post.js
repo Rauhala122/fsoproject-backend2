@@ -14,6 +14,7 @@ const schema = new mongoose.Schema({
     type: String
   },
   image: { type: mongoose.Schema.Types.ObjectId, ref: 'Image' },
+  video: { type: mongoose.Schema.Types.ObjectId, ref: 'Video' },
   likes: [ { type: mongoose.Schema.Types.ObjectId, ref: 'Like' } ],
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]

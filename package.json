@@ -4,7 +4,7 @@
   "description": "Full Stack Open project 2020",
   "main": "index.js",
   "engines": {
-  "node": "12.11.1"
+    "node": "12.11.1"
   },
   "scripts": {
     "start": "node index.js",
@@ -26,6 +26,7 @@
     "apollo-upload-client": "^13.0.0",
     "axios": "^0.19.2",
     "bcrypt": "^4.0.1",
+    "browser-image-compression": "^1.0.12",
     "cloudinary": "^1.21.0",
     "dotenv": "^8.2.0",
     "ember-auto-import": "^1.5.3",

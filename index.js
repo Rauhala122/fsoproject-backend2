@@ -9,6 +9,7 @@ const User = require("./models/user")
 const Post = require("./models/post")
 const Comment = require("./models/comment")
 const Message = require("./models/message")
+const Video = require('./models/video')
 const ProfilePicture = require("./models/profilePicture")
 const Image = require("./models/image")
 const Like = require("./models/like")
@@ -131,6 +132,13 @@ const typeDefs = gql`
     user: User
   }
 
+  type Video {
+    id: ID!
+    videoType: String
+    videoUrl: String
+    user: User
+  }
+
   type User {
     id: ID!
     name: String!
@@ -164,6 +172,7 @@ const typeDefs = gql`
     user: User
     comments: [Comment]
     image: File
+    video: Video
     createdAt: Int
   }
 
@@ -334,6 +343,9 @@ const resolvers = {
     },
     image: (root) => {
       return Image.findById(root.image)
+    },
+    video: (root) => {
+      return Video.findById(root.video)
     }
   },
   Channel: {
@@ -436,6 +448,7 @@ const resolvers = {
       console.log("CURRENT USER", currentUser)
       console.log("Path", fileStream.path)
 
+
       const uploader = await cloudinary.uploader.upload(
         fileStream.path,
         { public_id: `pictures/${filename}`, tags: `picture`,  eager: [
@@ -457,13 +470,6 @@ const resolvers = {
       const url = await cloudinary.url(`${uploader.public_id}.${uploader.format}`, {secure: true, transformation: [
         {width: 500, height: 500, crop: "thumb"}, {quality: 50, fetch_format: "auto"}
         ]})
-
-      await new Promise(res =>
-        fileStream.pipe(fs.createWriteStream(path.join(__dirname, "./images", filename)))
-        .on("close", res)
-      )
-
-      files.push(filename)
 
       const newFile = new ProfilePicture({
         imageType: "profile_picture",
@@ -496,41 +502,71 @@ const resolvers = {
       }
 
       let image = null;
+      let video = null;
 
       if (args.file) {
         const {createReadStream, filename, mimetype, encoding} = await args.file
         const fileStream = createReadStream()
 
-        console.log("Path", fileStream.path)
+        if (mimetype.split("/")[0] === "video") {
+          console.log("FILE IS VIDEO")
 
-        const uploader = await cloudinary.uploader.upload(
-          fileStream.path,
-          { public_id: `pictures/${filename}`, tags: `picture`,  eager: [
-        { width: 300, height: 300, crop: "pad", audio_codec: "none" } ] }, // directory and tags are optional
-          (err, image) => {
-            console.log("IMAGE", image)
-            if (err) throw new UserInputError(err)
-            console.log('file uploaded to Cloudinary')
-            // remove file from server
-            fs.unlinkSync(fileStream.path)
-            // return image details
-            console.log("IMAGE", image)
-          }
-        )
+          const videoUploader = await cloudinary.v2.uploader.upload(fileStream.path,
+          {resource_type: "video", public_id: `videos/${filename}`, tags: "video", eager: [
+        { quality: "auto", video_codec: "h265", fetch_format: "mp4" } ],
+          overwrite: true},
+          function(error, result) {console.log(result, error)});
 
-        const url = await cloudinary.url(`${uploader.public_id}.${uploader.format}`, {secure: true, transformation: [
-          {quality: 50, fetch_format: "auto"}
-        ]})
-        console.log("NEW IMAGE", url)
+          console.log("video uploader", videoUploader)
 
-        const newFile = new Image({
-          imageType: "profile_picture",
-          imageUrl: url,
-          user: currentUser._id
-        })
-        console.log("New file", newFile)
-        await newFile.save()
-        image = newFile._id
+          const videoUrl = await cloudinary.url(`${videoUploader.public_id}.${videoUploader.format}`, {secure: true, resource_type: "video", transformation: [
+            {quality: "auto", fetch_format: "mp4"}
+          ]})
+
+          console.log("video url", videoUrl)
+
+          const newFile = new Video({
+            videoType: "video",
+            videoUrl: videoUrl,
+            user: currentUser._id
+          })
+
+          await newFile.save()
+          video = newFile._id
+
+        } else if (mimetype.split("/")[0] === "image") {
+          const uploader = await cloudinary.uploader.upload(
+            fileStream.path,
+            { public_id: `pictures/${filename}`, tags: `picture`,  eager: [
+          { width: 300, height: 300, crop: "pad", audio_codec: "none" } ] }, // directory and tags are optional
+            (err, image) => {
+              console.log("IMAGE", image)
+              if (err) throw new UserInputError(err)
+              console.log('file uploaded to Cloudinary')
+              // remove file from server
+              fs.unlinkSync(fileStream.path)
+              // return image details
+              console.log("IMAGE", image)
+            }
+          )
+
+          const url = await cloudinary.url(`${uploader.public_id}.${uploader.format}`, {secure: true, transformation: [
+            {quality: "auto", fetch_format: "auto"}
+          ]})
+          console.log("NEW IMAGE", url)
+
+          const newFile = new Image({
+            imageType: "profile_picture",
+            imageUrl: url,
+            user: currentUser._id
+          })
+          console.log("New file", newFile)
+          await newFile.save()
+          image = newFile._id
+        } else {
+          throw new UserInputError("Please include video or image")
+        }
+
       }
 
       const post = new Post({
@@ -538,7 +574,8 @@ const resolvers = {
         date: currentTime().date,
         time: currentTime().time,
         user: currentUser._id,
-        image: image
+        image: image,
+        video: video
       })
 
       console.log("NEW POST", post)
@@ -738,9 +775,12 @@ const resolvers = {
       const passwordHash = await bcrypt.hash(args.password, saltRounds)
       const user = new User({...args, passwordHash})
 
-      console.log("User count")
-      if (!(await User.findOne({username: args.username})) && User.find({}) === undefined) {
+      if (await User.findOne({username: args.username})) {
         throw new UserInputError("This username has already been taken")
+      }
+
+      if (!args.country) {
+        throw new UserInputError("Country is required")
       }
 
       if (args.password.length < 8) {
@@ -749,7 +789,6 @@ const resolvers = {
 
       try {
         await user.save()
-        main().catch(console.error);
       } catch (error) {
         throw new UserInputError(error.message, {
             invalidArgs: args,
@@ -902,25 +941,25 @@ const server = new ApolloServer({
   }
 })
 
-const PORT = process.env.PORT || 4000
+const PORT = process.env.PORT || 5000
 
 const app = express()
 
-app.use("/images", express.static(path.join(__dirname, "./images")))
 const cors = require('cors')
 app.use(cors())
 
+app.use(express.static("build"))
+
 app.get('*', (req, res) => {
-   res.sendFile(path.resolve(__dirname, "build", "index.html"))
+   res.sendFile(path.resolve(__dirname, 'build', 'index.html'))
 });
 
 server.applyMiddleware({app})
-app.use(express.static("build"))
 
 const httpServer = createServer(app)
 server.installSubscriptionHandlers(httpServer);
 
-httpServer.listen({port: process.env.PORT || 4000}, () => {
+httpServer.listen({port: PORT}, () => {
   console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`)
   console.log(`🚀 Subscriptions ready at ws://localhost:${PORT}${server.subscriptionsPath}`)
 })
