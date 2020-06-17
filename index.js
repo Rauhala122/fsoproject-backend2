@@ -951,7 +951,7 @@ app.use(cors())
 app.use(express.static("build"))
 
 app.get('*', (req, res) => {
-   res.sendFile(path.resolve(__dirname, 'build', 'index.html'))
+   res.send("<p>Hello world</p>")
 });
 
 server.applyMiddleware({app})
