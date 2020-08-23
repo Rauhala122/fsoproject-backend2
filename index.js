@@ -254,6 +254,14 @@ const typeDefs = gql`
     deletePost(
       post: String!
     ): Post
+    editUser(
+      firstName: String
+      lastName: String
+      username: String
+      description: String
+      currentPassword: String
+      newPassword: String
+    ): User
     createUser(
       name: String!
       username: String!
@@ -263,15 +271,6 @@ const typeDefs = gql`
       password: String!
       city: String!
     ): User
-    changeUsername(
-      user: String!
-      newUsername: String!
-    ):User
-    changePassword(
-      user: String!
-      currentPassword: String!
-      newPassword: String!
-    ):User
     login(
       username: String!
       password: String!
@@ -724,50 +723,24 @@ const resolvers = {
 
       return post
     },
-    changeUsername: async (root, args, context) => {
+    editUser: async (root, args, context) => {
       const currentUser = context.currentUser
-      const userToChange = await User.findById(args.user)
+
+      console.log("Editing user, args:", args)
 
       if (!currentUser) {
-        throw new AuthenticationError("not authenticated")
+        throw new AuthenticationError("Not authenticated")
       }
 
-      if (currentUser.id !== userToChange.id) {
-        throw new UserInputError("Cannot change other user's username")
+      if (!args.firstName || !args.lastName || !args.username || !args.description) {
+        throw new UserInputError("Please, don't leave any of the fields empty")
       }
 
-      currentUser.username = args.newUsername
-      console.log(currentUser)
+      currentUser.name = `${args.firstName} ${args.lastName}`
+      currentUser.username = args.username
+      currentUser.description = args.description
+
       await currentUser.save()
-
-      return currentUser
-    },
-    changePassword: async (root, args, context) => {
-      const currentUser = context.currentUser
-      const userToChange = await User.findById(args.user)
-
-      if (!currentUser) {
-        throw new AuthenticationError("not authenticated")
-      }
-
-      if (currentUser.id !== userToChange.id) {
-        throw new UserInputError("Cannot change other user's password")
-      }
-
-      const passwordCorrect = userToChange === null
-      ? false
-      : await bcrypt.compare(args.currentPassword, userToChange.passwordHash)
-
-      if (!(userToChange && passwordCorrect)) {
-        throw new UserInputError("Wrong user or password")
-      }
-
-      const saltRounds = 10
-      const passwordHash = await bcrypt.hash(args.newPassword, saltRounds)
-
-      currentUser.passwordHash = passwordHash
-      await currentUser.save()
-
       return currentUser
     },
     createUser: async (root, args) => {
@@ -778,6 +751,8 @@ const resolvers = {
       if (await User.findOne({username: args.username})) {
         throw new UserInputError("This username has already been taken")
       }
+
+
 
       if (!args.country) {
         throw new UserInputError("Country is required")
