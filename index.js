@@ -753,7 +753,6 @@ const resolvers = {
       }
 
 
-
       if (!args.country) {
         throw new UserInputError("Country is required")
       }
@@ -923,11 +922,12 @@ const app = express()
 const cors = require('cors')
 app.use(cors())
 
-app.use(express.static("build"))
+app.use(express.static('build'))
+app.use(express.json())
 
-app.get('*', (req, res) => {
-   res.send("<p>Hello world</p>")
-});
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "public", "index.html"))
+})
 
 server.applyMiddleware({app})
 
