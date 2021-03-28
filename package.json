@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build:ui": "rm -rf build && cd ../fsoproject2020-frontend2/ && npm run build --prod && cp -r build ../fsoproject2020",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
